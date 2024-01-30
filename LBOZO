@@ -1,6 +1,6 @@
 _G.Config = {
     Enabled = true,
-    Legit = true,
+    Legit = false,
     ForceField = true
 }
 
@@ -195,9 +195,11 @@ RunService.RenderStepped:Connect(function()
 
                 Remotes.ParryButtonPress:Fire()
 
-                repeat task.wait() until LocalPlayer.Character:FindFirstChild("Highlight")
+                task.spawn(function()
+                    task.wait(0.1)
 
-                Cooldown = false
+                    Cooldown = false
+                end)
             elseif CurrentTarget ~= LocalPlayer.Name then
                 Target = CurrentTarget
             end
