@@ -1,0 +1,210 @@
+_G.Config = {
+    Enabled = true,
+    Legit = true,
+    ForceField = true
+}
+
+game.Lighting.ClockTime = 6
+
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local Alive = Workspace.Alive
+local Balls = Workspace.Balls
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local Block = LocalPlayer.PlayerGui.Hotbar.Block:FindFirstChildOfClass("UIGradient")
+local Remotes = ReplicatedStorage.Remotes
+
+local Part = Instance.new("Part", Workspace)
+
+Part.Shape = "Ball"
+Part.Color = Color3.fromRGB(175, 92, 0)
+Part.Material = "ForceField"
+Part.Transparency = 1
+Part.CastShadow = false
+Part.Size = Vector3.new(10, 10, 10)
+Part.CanCollide = false
+Part.CanQuery = false
+Part.CanTouch = false
+Part.Anchored = true
+
+local Config = _G.Config
+local Ball = nil
+local TargetNearby = false
+local Clash = false
+local Check = 0.3
+local ParryCount = 0
+local Target = nil
+local Cooldown = false
+
+UserInputService.InputBegan:Connect(function(Input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+
+	if Input.KeyCode == Enum.KeyCode.Q then
+        Remotes.AbilityButtonPress:Fire()
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if Config.Enabled and Alive:FindFirstChild(LocalPlayer.Name) then
+        if LocalPlayer.Character.Torso.Transparency == 1 then return end
+
+        for _, Instance in pairs(LocalPlayer.Character.HumanoidRootPart:GetChildren()) do
+            if string.find(Instance.Name, "Shield") then
+                return
+            end
+        end
+        
+        if TargetNearby and Clash then
+            if Config.Legit then
+                if math.random(1, 2) == 1 then
+                    Remotes.ParryButtonPress:Fire()
+                else
+                    Remotes.ParryAttempt:FireServer(0, CFrame.new(), {}, {})
+                end
+            else
+                Remotes.ParryAttempt:FireServer(0, CFrame.new(), {}, {})
+            end
+        end
+        
+        for _, Instance in pairs(Balls:GetChildren()) do
+            if Instance:GetAttribute("realBall") then
+                Ball = Instance
+
+                break
+            end
+        end
+        
+        if Block.Offset.Y <= -0.2 and Block.Offset.Y >= -0.225 and Cooldown then
+            Remotes.AbilityButtonPress:Fire()
+        end
+
+        if Ball then
+            local Distance = (Ball.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+            local Velocity = Ball.Velocity.Magnitude
+            local CurrentTarget = Ball:GetAttribute("target")
+
+            if Config.ForceField then
+                if TargetNearby and Clash then
+                    Part.Size = Vector3.new(35, 35, 35)
+                else
+                    local Size = (Distance / Velocity * 35)
+
+                    Part.Size = Vector3.new(Size, Size, Size)
+                end
+
+                Part.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+                Part.Transparency = 0.75
+            else
+                Part.Transparency = 1
+            end
+
+            if Config.Legit then
+                if Velocity >= 900 then
+                    Check = 0.28
+                elseif Velocity >= 800 then
+                    Check = 0.27
+                elseif Velocity >= 700 then
+                    Check = 0.28
+                elseif Velocity >= 600 then
+                    Check = 0.29
+                elseif Velocity >= 500 then
+                    Check = 0.3
+                elseif Velocity >= 400 then
+                    Check = 0.31
+                elseif Velocity >= 300 then
+                    Check = 0.32
+                elseif Velocity >= 200 then
+                    Check = 0.33
+                elseif Velocity >= 100 then
+                    Check = 0.34
+                else
+                    Check = 0.375
+                end
+            else
+                if Velocity >= 900 then
+                    Check = 0.2
+                elseif Velocity >= 800 then
+                    Check = 0.21
+                elseif Velocity >= 700 then
+                    Check = 0.22
+                elseif Velocity >= 600 then
+                    Check = 0.23
+                elseif Velocity >= 500 then
+                    Check = 0.24
+                elseif Velocity >= 400 then
+                    Check = 0.25
+                elseif Velocity >= 300 then
+                    Check = 0.26
+                elseif Velocity >= 200 then
+                    Check = 0.27
+                elseif Velocity >= 100 then
+                    Check = 0.29
+                else
+                    Check = 0.3
+                end
+            end
+
+            task.spawn(function()
+                for _, Character in pairs(Alive:GetChildren()) do
+                    if Character.Name == Target and Character:FindFirstChild("Humanoid").Health ~= 0 and Character:FindFirstChild("HumanoidRootPart") then
+                        local Distance = (Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+
+                        if Distance <= 10 and ParryCount >= 1 then
+                            TargetNearby = true
+                            Clash = true
+                        elseif Distance <= 40 then
+                            TargetNearby = true
+
+                            return
+                        end
+                    end
+                end
+
+                TargetNearby = false
+                Clash = false
+            end)
+
+            if LocalPlayer.Character:FindFirstChild("Highlight") and (Distance <= 20 or (Distance / Velocity) <= Check) then
+                if Cooldown then return end
+
+                task.spawn(function()
+                    repeat task.wait() until CurrentTarget ~= LocalPlayer.Name
+
+                    if CurrentTarget == Target then
+                        ParryCount = ParryCount + 1
+                    else
+                        ParryCount = 0
+                    end
+
+                    if ParryCount >= 2 then
+                        ParryCount = 0
+
+                        if CurrentTarget == Target then
+                            Clash = true
+                        else
+                            Clash = false
+                        end
+                    end
+                end)
+
+                Cooldown = true
+
+                Remotes.ParryButtonPress:Fire()
+
+                repeat task.wait() until LocalPlayer.Character:FindFirstChild("Highlight")
+
+                Cooldown = false
+            elseif CurrentTarget ~= LocalPlayer.Name then
+                Target = CurrentTarget
+            end
+        else
+            Part.Transparency = 1
+        end
+    else
+        Part.Transparency = 1
+    end
+end)
